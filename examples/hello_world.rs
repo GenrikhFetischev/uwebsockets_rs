@@ -1,11 +1,11 @@
 use std::thread;
 use std::time::Duration;
-use uws_rust::app::App;
-use uws_rust::http_request::HttpRequest;
-use uws_rust::http_response::HttpResponse;
-use uws_rust::us_socket_context_options::UsSocketContextOptions;
-use uws_rust::websocket::Opcode;
-use uws_rust::websocket_behavior::{CompressOptions, UpgradeContext, WebSocketBehavior};
+use uwebsockets_rs::app::App;
+use uwebsockets_rs::http_request::HttpRequest;
+use uwebsockets_rs::http_response::HttpResponse;
+use uwebsockets_rs::us_socket_context_options::UsSocketContextOptions;
+use uwebsockets_rs::websocket::Opcode;
+use uwebsockets_rs::websocket_behavior::{CompressOptions, UpgradeContext, WebSocketBehavior};
 
 fn main() {
   let config = UsSocketContextOptions {

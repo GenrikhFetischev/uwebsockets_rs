@@ -1,20 +1,18 @@
 [package]
 name = "uwebsockets_rs"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 authors = ["Genrikh Fetishchev <genrikhfetischev@gmail.com>"]
 description = "Rust wrapper for the uWebSockets"
 license = "MIT"
 homepage = "https://github.com/GenrikhFetischev/uws_rust"
-
-
-[profile.dev.build-override]
-debug = true
-[profile.release.build-override]
-debug = true
+keywords = ["http", "websocket", "server", "uwebsockets"]
+exclude = ["build.rs"]
 
 
 [dependencies]
-libuwebsockets-sys = { path = "../libuwebsockets-sys", version = "0.0.2", features = ["uws_vendored"] }
+libuwebsockets-sys = { path = "../libuwebsockets-sys", version = "0.0.7", features = ["uws_vendored"] }
+
+
 
 
