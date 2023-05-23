@@ -1,7 +1,6 @@
 use crate::utils::{read_buf_from_ptr, read_str_from_ptr};
 use crate::websocket::{Opcode, WebSocketStruct};
 use crate::{http_request::HttpRequest, http_response::HttpResponseStruct};
-use std::ffi::{c_char, c_int, c_void};
 use libuwebsockets_sys::{
     uws_compress_options_t, uws_compress_options_t_DEDICATED_COMPRESSOR,
     uws_compress_options_t_DEDICATED_COMPRESSOR_128KB,
@@ -23,6 +22,7 @@ use libuwebsockets_sys::{
     uws_opcode_t, uws_req_t, uws_res_t, uws_socket_behavior_t, uws_socket_context_t,
     uws_websocket_t,
 };
+use std::ffi::{c_char, c_int, c_void};
 
 pub enum CompressOptions {
     /* Disabled, shared, shared are "special" values */
