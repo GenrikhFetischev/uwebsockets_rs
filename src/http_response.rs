@@ -18,6 +18,7 @@ pub(crate) type OnWritableHandler = Box<dyn Fn(u64) -> bool>;
 pub type HttpResponse = HttpResponseStruct<false>;
 pub type HttpResponseSSL = HttpResponseStruct<true>;
 
+#[derive(Clone)]
 pub struct HttpResponseStruct<const SSL: bool> {
     pub(crate) on_abort_ptr: Option<*mut Box<dyn Fn()>>,
     pub(crate) on_data_ptr: Option<*mut OnDataHandler>,
@@ -95,30 +96,35 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
     }
 
     pub fn on_aborted(&mut self, handler: impl Fn() + Sized + 'static) -> &Self {
-        let user_data: Box<Box<dyn Fn()>> = Box::new(Box::new(handler));
-        let user_data = Box::into_raw(user_data);
-        self.on_abort_ptr = Some(user_data);
+        let user_callback: Box<Box<dyn Fn()>> = Box::new(Box::new(handler));
+        let user_callback_ptr = Box::into_raw(user_callback);
+        self.on_abort_ptr = Some(user_callback_ptr);
+        let http_response = Box::into_raw(Box::new(self.clone()));
+
+        let native_callback = if SSL { ssl_on_abort } else { on_abort };
 
         unsafe {
             uws_res_on_aborted(
                 SSL as i32,
                 self.native,
-                Some(on_abort),
-                user_data as *mut c_void,
+                Some(native_callback),
+                http_response as *mut c_void,
             )
         }
 
         self
     }
 
-    pub fn end(&self, data: Option<&str>, close_connection: bool) {
+    pub fn deinit(&self) {
         unsafe {
             let _ = self.on_data_ptr.map(|p| Box::from_raw(p));
             let _ = self.on_abort_ptr.map(|p| Box::from_raw(p));
             let _ = self.on_writable_ptr.map(|p| Box::from_raw(p));
             let _ = self.on_cork_ptr.map(|p| Box::from_raw(p));
         }
+    }
 
+    pub fn end(&self, data: Option<&str>, close_connection: bool) {
         unsafe {
             let (data, length) = match data {
                 Some(data) => (data.as_ptr(), data.len()),
@@ -132,6 +138,8 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
                 close_connection,
             )
         }
+
+        self.deinit()
     }
 
     pub fn try_end(&self, data: Option<&str>, total_size: u64, close_connection: bool) {
@@ -261,10 +269,24 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
 }
 
 unsafe extern "C" fn on_abort(_res: *mut uws_res_t, user_data: *mut c_void) {
-    let user_handler = Box::from_raw(user_data as *mut Box<dyn Fn()>);
+    println!("ON ABORT NATIVE");
+    let http_response = Box::from_raw(user_data as *mut HttpResponseStruct<false>);
+
+    let user_handler = http_response.on_abort_ptr.unwrap() as *mut Box<dyn Fn()>;
+    let user_handler = user_handler.as_ref().unwrap();
+
+    user_handler();
+    http_response.deinit()
+}
+
+unsafe extern "C" fn ssl_on_abort(_res: *mut uws_res_t, user_data: *mut c_void) {
+    let http_response = Box::from_raw(user_data as *mut HttpResponseStruct<true>);
+
+    let user_handler = Box::from_raw(http_response.on_abort_ptr.unwrap() as *mut Box<dyn Fn()>);
     let user_handler = user_handler.as_ref();
 
     user_handler();
+    http_response.deinit()
 }
 
 unsafe extern "C" fn on_data(
