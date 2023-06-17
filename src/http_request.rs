@@ -12,12 +12,22 @@ pub struct HttpRequest {
     pub(crate) headers: Option<Vec<(&'static str, &'static str)>>,
 }
 
+unsafe impl Sync for HttpRequest {}
+unsafe impl Send for HttpRequest {}
+
 impl HttpRequest {
     pub fn new(native: *mut uws_req_t) -> Self {
         HttpRequest {
             native,
             headers: None,
         }
+    }
+}
+
+#[cfg(feature = "native-access")]
+impl HttpRequest {
+    pub fn get_native(&self) -> *mut uws_req_t {
+        self.native
     }
 }
 

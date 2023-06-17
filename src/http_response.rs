@@ -1,5 +1,6 @@
-use crate::utils::{read_str_from_ptr, read_str_from_with_ssl};
-use crate::websocket_behavior::UpgradeContext;
+use std::ffi::{c_char, c_int, c_void};
+use std::ptr::{null, null_mut};
+
 use libuwebsockets_sys::{
     uws_res_cork, uws_res_end, uws_res_end_without_body, uws_res_get_remote_address,
     uws_res_get_remote_address_as_text, uws_res_get_write_offset, uws_res_has_responded,
@@ -7,8 +8,9 @@ use libuwebsockets_sys::{
     uws_res_pause, uws_res_resume, uws_res_t, uws_res_try_end, uws_res_upgrade, uws_res_write,
     uws_res_write_continue, uws_res_write_header, uws_res_write_header_int, uws_res_write_status,
 };
-use std::ffi::{c_char, c_int, c_void};
-use std::ptr::{null, null_mut};
+
+use crate::utils::{read_str_from_ptr, read_str_from_with_ssl};
+use crate::websocket_behavior::UpgradeContext;
 
 pub(crate) type OnDataHandler = Box<dyn Fn(&str, bool)>;
 pub(crate) type OnWritableHandler = Box<dyn Fn(u64) -> bool>;
@@ -17,12 +19,15 @@ pub type HttpResponse = HttpResponseStruct<false>;
 pub type HttpResponseSSL = HttpResponseStruct<true>;
 
 pub struct HttpResponseStruct<const SSL: bool> {
-    pub(crate) on_abort_ptr: Option<*mut Box<dyn FnOnce()>>,
+    pub(crate) on_abort_ptr: Option<*mut Box<dyn Fn()>>,
     pub(crate) on_data_ptr: Option<*mut OnDataHandler>,
     pub(crate) on_writable_ptr: Option<*mut OnWritableHandler>,
     pub(crate) on_cork_ptr: Option<*mut dyn FnOnce()>,
     pub(crate) native: *mut uws_res_t,
 }
+
+unsafe impl<const SSL: bool> Sync for HttpResponseStruct<SSL> {}
+unsafe impl<const SSL: bool> Send for HttpResponseStruct<SSL> {}
 
 impl<const SSL: bool> HttpResponseStruct<SSL> {
     pub fn new(native: *mut uws_res_t) -> Self {
@@ -33,6 +38,13 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
             on_writable_ptr: None,
             on_cork_ptr: None,
         }
+    }
+}
+
+#[cfg(feature = "native-access")]
+impl<const SSL: bool> HttpResponseStruct<SSL> {
+    pub fn get_native(&self) -> *mut uws_res_t {
+        self.native
     }
 }
 
@@ -83,9 +95,8 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
     }
 
     pub fn on_aborted(&mut self, handler: impl Fn() + Sized + 'static) -> &Self {
-        let user_data: Box<Box<dyn FnOnce()>> = Box::new(Box::new(handler));
+        let user_data: Box<Box<dyn Fn()>> = Box::new(Box::new(handler));
         let user_data = Box::into_raw(user_data);
-
         self.on_abort_ptr = Some(user_data);
 
         unsafe {
@@ -101,6 +112,13 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
     }
 
     pub fn end(&self, data: Option<&str>, close_connection: bool) {
+        unsafe {
+            let _ = self.on_data_ptr.map(|p| Box::from_raw(p));
+            let _ = self.on_abort_ptr.map(|p| Box::from_raw(p));
+            let _ = self.on_writable_ptr.map(|p| Box::from_raw(p));
+            let _ = self.on_cork_ptr.map(|p| Box::from_raw(p));
+        }
+
         unsafe {
             let (data, length) = match data {
                 Some(data) => (data.as_ptr(), data.len()),
@@ -190,11 +208,9 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
             uws_res_override_write_offset(SSL as c_int, self.native, offset);
         }
     }
-
     pub fn has_responded(&self) -> bool {
         unsafe { uws_res_has_responded(SSL as c_int, self.native) }
     }
-
     pub fn get_remote_address(&self) -> &str {
         unsafe { read_str_from_with_ssl::<SSL, uws_res_t>(self.native, uws_res_get_remote_address) }
     }
@@ -244,21 +260,11 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
     }
 }
 
-impl<const SSL: bool> Drop for HttpResponseStruct<SSL> {
-    fn drop(&mut self) {
-        unsafe {
-            let _ = self.on_data_ptr.map(|p| Box::from_raw(p));
-            let _ = self.on_abort_ptr.map(|p| Box::from_raw(p));
-            let _ = self.on_writable_ptr.map(|p| Box::from_raw(p));
-            let _ = self.on_cork_ptr.map(|p| Box::from_raw(p));
-        }
-    }
-}
-
 unsafe extern "C" fn on_abort(_res: *mut uws_res_t, user_data: *mut c_void) {
-    let user_handler: Box<dyn Fn()> = Box::from_raw(user_data as *mut Box<dyn Fn()>);
+    let user_handler = Box::from_raw(user_data as *mut Box<dyn Fn()>);
     let user_handler = user_handler.as_ref();
-    user_handler()
+
+    user_handler();
 }
 
 unsafe extern "C" fn on_data(
@@ -268,22 +274,20 @@ unsafe extern "C" fn on_data(
     is_end: bool,
     optional_data: *mut c_void,
 ) {
-    let user_handler = optional_data as *mut Box<dyn Fn(&str, bool)>;
-    let user_handler = user_handler.as_ref().unwrap();
+    let user_handler = Box::from_raw(optional_data as *mut OnDataHandler);
+    let user_handler = user_handler.as_ref();
     let str = read_str_from_ptr(chunk, chunk_length);
-
     user_handler(str, is_end);
 }
 
 unsafe extern "C" fn on_writable(_: *mut uws_res_t, arg1: u64, optional_data: *mut c_void) -> bool {
-    let user_handler: OnWritableHandler =
-        Box::from_raw(optional_data as *mut Box<dyn Fn(u64) -> bool>);
+    let user_handler = Box::from_raw(optional_data as *mut Box<dyn Fn(u64) -> bool>);
     let user_handler = user_handler.as_ref();
     user_handler(arg1)
 }
 
 unsafe extern "C" fn on_cork(_: *mut uws_res_t, user_data: *mut c_void) {
-    let user_handler: Box<dyn Fn()> = Box::from_raw(user_data as *mut Box<dyn Fn()>);
+    let user_handler = Box::from_raw(user_data as *mut Box<dyn Fn()>);
     let user_handler = user_handler.as_ref();
     user_handler()
 }

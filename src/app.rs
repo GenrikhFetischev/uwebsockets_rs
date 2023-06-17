@@ -5,17 +5,17 @@ use std::{
     pin::Pin,
 };
 
-use crate::http_request::HttpRequest;
-use crate::http_response::HttpResponseStruct;
-use crate::us_socket_context_options::{UsSocketContextOptions, UsSocketContextOptionsCRepr};
-
-use crate::websocket_behavior::WebSocketBehavior;
 use libuwebsockets_sys::{
     us_listen_socket_t, uws_app_any, uws_app_connect, uws_app_delete, uws_app_get, uws_app_listen,
     uws_app_listen_config_t, uws_app_options, uws_app_patch, uws_app_post, uws_app_put,
     uws_app_run, uws_app_t, uws_app_trace, uws_create_app, uws_method_handler, uws_req_t,
     uws_res_t, uws_ws,
 };
+
+use crate::http_request::HttpRequest;
+use crate::http_response::HttpResponseStruct;
+use crate::us_socket_context_options::{UsSocketContextOptions, UsSocketContextOptionsCRepr};
+use crate::websocket_behavior::WebSocketBehavior;
 
 type RoutesData<const SSL: bool> = Vec<Pin<Box<Box<dyn Fn(HttpResponseStruct<SSL>, HttpRequest)>>>>;
 type ListenHandler = Option<Pin<Box<Box<dyn Fn()>>>>;

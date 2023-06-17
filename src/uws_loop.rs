@@ -1,8 +1,17 @@
-use libuwebsockets_sys::{us_loop_t, uws_get_loop, uws_loop_defer};
 use std::ffi::c_void;
 
+use libuwebsockets_sys::{us_loop_t, uws_get_loop, uws_loop_defer};
+
+#[derive(Clone, Copy, Debug)]
 pub struct UwsLoop {
     pub(crate) loop_ptr: *mut us_loop_t,
+}
+
+#[cfg(feature = "native-access")]
+impl UwsLoop {
+    pub fn get_native(&self) -> *mut us_loop_t {
+        self.loop_ptr
+    }
 }
 
 unsafe impl Send for UwsLoop {}
@@ -15,10 +24,7 @@ pub fn get_loop() -> UwsLoop {
     UwsLoop { loop_ptr }
 }
 
-pub fn loop_defer<C>(uws_loop: UwsLoop, cb: C)
-where
-    C: Fn(),
-{
+pub fn loop_defer(uws_loop: UwsLoop, cb: impl FnOnce() + 'static) {
     let boxed_cb = Box::new(Box::new(cb));
     let cb_ptr = Box::into_raw(boxed_cb);
 
@@ -32,7 +38,9 @@ where
 }
 
 unsafe extern "C" fn loop_defer_callback(user_data: *mut c_void) {
-    let user_callback = Box::from_raw(user_data as *mut Box<dyn Fn()>);
-    let user_callback = user_callback.as_ref().as_ref();
-    user_callback();
+    println!("Inside native callback");
+    let user_handler = user_data as *mut Box<dyn Fn()>;
+    let user_handler = user_handler.as_ref().unwrap();
+    user_handler();
+    println!("executed");
 }

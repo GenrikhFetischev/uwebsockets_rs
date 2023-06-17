@@ -9,10 +9,17 @@ homepage = "https://github.com/GenrikhFetischev/uws_rust"
 keywords = ["http", "websocket", "server", "uwebsockets"]
 exclude = ["build.rs"]
 
+[profile.dev.build-override]
+debug = true
+[profile.release.build-override]
+debug = true
+
+[features]
+native-access = []
+
 
 [dependencies]
 libuwebsockets-sys = { path = "../libuwebsockets-sys", version = "0.0.7", features = ["uws_vendored"] }
-
 
 
 
