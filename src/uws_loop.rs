@@ -25,8 +25,8 @@ pub fn get_loop() -> UwsLoop {
 }
 
 pub fn loop_defer(uws_loop: UwsLoop, cb: impl FnOnce() + 'static) {
-    let boxed_cb = Box::new(Box::new(cb));
-    let cb_ptr = Box::into_raw(boxed_cb);
+    let boxed_cb = CallbackWrapper { cb: Box::new(cb) };
+    let cb_ptr = Box::into_raw(Box::new(boxed_cb));
 
     unsafe {
         uws_loop_defer(
@@ -38,9 +38,11 @@ pub fn loop_defer(uws_loop: UwsLoop, cb: impl FnOnce() + 'static) {
 }
 
 unsafe extern "C" fn loop_defer_callback(user_data: *mut c_void) {
-    println!("Inside native callback");
-    let user_handler = user_data as *mut Box<dyn Fn()>;
-    let user_handler = user_handler.as_ref().unwrap();
-    user_handler();
-    println!("executed");
+    let callback_wrapper = Box::from_raw(user_data as *mut CallbackWrapper);
+    let callback = callback_wrapper.cb;
+    callback();
+}
+
+struct CallbackWrapper {
+    cb: Box<dyn FnOnce()>,
 }
