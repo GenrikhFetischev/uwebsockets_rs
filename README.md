@@ -15,4 +15,5 @@ println!("cargo:rustc-link-lib=crypto");
 println!("cargo:rustc-link-lib=stdc++");
 ```
 
+This package is available here - https://crates.io/crates/uwebsockets_rs/versions
 
