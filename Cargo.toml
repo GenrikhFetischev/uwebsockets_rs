@@ -1,11 +1,11 @@
 [package]
 name = "uwebsockets_rs"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 authors = ["Genrikh Fetishchev <genrikhfetischev@gmail.com>"]
 description = "Rust wrapper for the uWebSockets"
 license = "MIT"
-homepage = "https://github.com/GenrikhFetischev/uws_rust"
+homepage = "https://github.com/GenrikhFetischev/uwebsockets_rs"
 keywords = ["http", "websocket", "server", "uwebsockets"]
 exclude = ["build.rs"]
 

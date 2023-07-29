@@ -1,4 +1,6 @@
-use crate::utils::{read_buf_from_ptr, read_str_from_ptr};
+use std::ffi::{c_char, c_int, c_void};
+use std::ptr::{null, null_mut};
+
 use libuwebsockets_sys::{
     uws_websocket_t, uws_ws_close, uws_ws_cork, uws_ws_end, uws_ws_get_buffered_amount,
     uws_ws_get_remote_address, uws_ws_get_remote_address_as_text, uws_ws_get_user_data,
@@ -7,17 +9,20 @@ use libuwebsockets_sys::{
     uws_ws_send_fragment, uws_ws_send_last_fragment, uws_ws_send_with_options, uws_ws_subscribe,
     uws_ws_unsubscribe,
 };
-use std::ffi::{c_char, c_int, c_void};
-use std::ptr::{null, null_mut};
+
+use crate::utils::{read_buf_from_ptr, read_str_from_ptr};
 
 pub type WebSocket = WebSocketStruct<false>;
 pub type WebSocketSSL = WebSocketStruct<true>;
 
+#[derive(Clone)]
 pub struct WebSocketStruct<const SSL: bool> {
     native: *mut uws_websocket_t,
     pub(crate) cork_handler_ptr: Option<*mut dyn Fn()>,
     pub(crate) topics: Option<Vec<&'static str>>,
 }
+unsafe impl<const SSL: bool> Send for WebSocketStruct<SSL> {}
+unsafe impl<const SSL: bool> Sync for WebSocketStruct<SSL> {}
 
 impl<const SSL: bool> WebSocketStruct<SSL> {
     pub fn new(native: *mut uws_websocket_t) -> Self {
@@ -281,7 +286,7 @@ impl<const SSL: bool> Drop for WebSocketStruct<SSL> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum SendStatus {
     Backpressure,
     Success,
