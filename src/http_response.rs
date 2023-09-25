@@ -237,13 +237,12 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
         ws_protocol: Option<&str>,
         ws_extensions: Option<&str>,
         context: UpgradeContext,
-        user_data: Option<Box<T>>,
+        user_data: Option<&mut T>,
     ) where
         T: Sized,
     {
         // TODO: Consider memory leaks here
         let user_data = user_data
-            .map(Box::into_raw)
             .map(|data| data as *mut _ as *mut c_void)
             .unwrap_or(null_mut());
 

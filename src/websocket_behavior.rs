@@ -259,6 +259,13 @@ pub struct UpgradeContext {
     pub(crate) context: *mut uws_socket_context_t,
 }
 
+#[cfg(feature = "native-access")]
+impl UpgradeContext {
+    pub fn get_context_ptr(&self) -> *mut uws_socket_context_t {
+        self.context
+    }
+}
+
 unsafe extern "C" fn upgrade_handler(
     response: *mut uws_res_t,
     request: *mut uws_req_t,

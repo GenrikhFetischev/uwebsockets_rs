@@ -89,6 +89,7 @@ impl<const SSL: bool> WebSocketStruct<SSL> {
             .into()
         }
     }
+
     pub fn send_last_fragment(&self, message: &[u8], compress: bool) -> SendStatus {
         let message_ptr = message.as_ptr() as *const c_char;
         let message_len = message.len();
