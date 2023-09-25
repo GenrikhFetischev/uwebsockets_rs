@@ -33,8 +33,11 @@ fn main() {
         send_pings_automatically: true,
         max_lifetime: 111,
         upgrade: Some(Box::new(upgrade_handler)),
-        open: Some(Box::new(|_| {
+        open: Some(Box::new(|ws| {
             println!("WS is opened");
+
+            let data = ws.get_user_data::<String>();
+            println!("{data:#?}");
         })),
         message: Some(Box::new(|ws, message, opcode| {
             let user_data = ws.get_user_data::<()>();
@@ -114,7 +117,15 @@ fn upgrade_handler(res: HttpResponse, req: HttpRequest, context: UpgradeContext)
     let ws_protocol = req.get_header("sec-websocket-protocol");
     let ws_extensions = req.get_header("sec-websocket-extensions");
 
-    res.upgrade::<()>(ws_key_string, ws_protocol, ws_extensions, context, None);
+    let user_data = "user_data".to_string();
+
+    res.upgrade(
+        ws_key_string,
+        ws_protocol,
+        ws_extensions,
+        context,
+        Some(user_data),
+    );
 }
 
 fn async_http_handler(mut res: HttpResponse, _: HttpRequest) {

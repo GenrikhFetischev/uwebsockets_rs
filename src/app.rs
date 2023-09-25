@@ -169,7 +169,7 @@ impl<const SSL: bool> Application<SSL> {
             let user_data_ptr: *const Box<dyn Fn()> = user_data;
             user_data_ptr as *mut c_void
         } else {
-            null_mut() as *mut c_void
+            null_mut()
         };
 
         unsafe {

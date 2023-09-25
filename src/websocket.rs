@@ -1,4 +1,5 @@
 use std::ffi::{c_char, c_int, c_void};
+use std::fmt::Debug;
 use std::ptr::{null, null_mut};
 
 use libuwebsockets_sys::{
@@ -32,9 +33,6 @@ impl<const SSL: bool> WebSocketStruct<SSL> {
             topics: None,
         }
     }
-}
-
-impl<const SSL: bool> WebSocketStruct<SSL> {
     pub fn close(&self) {
         unsafe {
             uws_ws_close(SSL as c_int, self.native);
@@ -282,7 +280,16 @@ impl<const SSL: bool> WebSocketStruct<SSL> {
 
 impl<const SSL: bool> Drop for WebSocketStruct<SSL> {
     fn drop(&mut self) {
-        unsafe { self.cork_handler_ptr.map(|ptr| Box::from_raw(ptr)) };
+        unsafe {
+            self.cork_handler_ptr.map(|ptr| Box::from_raw(ptr));
+        };
+    }
+}
+
+#[cfg(feature = "native-access")]
+impl<const SSL: bool> WebSocketStruct<SSL> {
+    pub fn get_native_ws(&self) -> *mut uws_websocket_t {
+        self.native
     }
 }
 
@@ -304,7 +311,7 @@ impl From<u32> for SendStatus {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Opcode {
     Continuation,
     Text,

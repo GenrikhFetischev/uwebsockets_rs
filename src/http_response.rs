@@ -237,13 +237,15 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
         ws_protocol: Option<&str>,
         ws_extensions: Option<&str>,
         context: UpgradeContext,
-        user_data: Option<&mut T>,
+        user_data: Option<Box<T>>,
     ) where
         T: Sized,
     {
+        // TODO: Consider memory leaks here
         let user_data = user_data
+            .map(Box::into_raw)
             .map(|data| data as *mut _ as *mut c_void)
-            .unwrap_or(null_mut() as *mut c_void);
+            .unwrap_or(null_mut());
 
         let protocol_ptr = ws_protocol.map(|ext| ext.as_ptr()).unwrap_or(null());
         let protocol_len = ws_protocol.map(|ext| ext.len()).unwrap_or(0);
@@ -269,10 +271,9 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
 }
 
 unsafe extern "C" fn on_abort(_res: *mut uws_res_t, user_data: *mut c_void) {
-    println!("ON ABORT NATIVE");
     let http_response = Box::from_raw(user_data as *mut HttpResponseStruct<false>);
 
-    let user_handler = http_response.on_abort_ptr.unwrap() as *mut Box<dyn Fn()>;
+    let user_handler = http_response.on_abort_ptr.unwrap();
     let user_handler = user_handler.as_ref().unwrap();
 
     user_handler();
@@ -282,7 +283,7 @@ unsafe extern "C" fn on_abort(_res: *mut uws_res_t, user_data: *mut c_void) {
 unsafe extern "C" fn ssl_on_abort(_res: *mut uws_res_t, user_data: *mut c_void) {
     let http_response = Box::from_raw(user_data as *mut HttpResponseStruct<true>);
 
-    let user_handler = Box::from_raw(http_response.on_abort_ptr.unwrap() as *mut Box<dyn Fn()>);
+    let user_handler = Box::from_raw(http_response.on_abort_ptr.unwrap());
     let user_handler = user_handler.as_ref();
 
     user_handler();
