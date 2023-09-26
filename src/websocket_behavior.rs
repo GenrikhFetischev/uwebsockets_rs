@@ -258,6 +258,8 @@ impl<const SSL: bool> From<WebSocketBehavior<SSL>> for (uws_socket_behavior_t, U
 pub struct UpgradeContext {
     pub(crate) context: *mut uws_socket_context_t,
 }
+unsafe impl Send for UpgradeContext {}
+unsafe impl Sync for UpgradeContext {}
 
 #[cfg(feature = "native-access")]
 impl UpgradeContext {

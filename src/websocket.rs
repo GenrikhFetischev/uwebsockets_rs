@@ -294,7 +294,7 @@ impl<const SSL: bool> WebSocketStruct<SSL> {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum SendStatus {
     Backpressure,
     Success,
