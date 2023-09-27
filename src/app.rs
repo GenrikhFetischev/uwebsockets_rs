@@ -14,16 +14,17 @@ use libuwebsockets_sys::{
 
 use crate::http_request::HttpRequest;
 use crate::http_response::HttpResponseStruct;
+use crate::listen_socket::ListenSocket;
 use crate::us_socket_context_options::{UsSocketContextOptions, UsSocketContextOptionsCRepr};
 use crate::websocket_behavior::WebSocketBehavior;
 
 type RoutesData<const SSL: bool> = Vec<Pin<Box<Box<dyn Fn(HttpResponseStruct<SSL>, HttpRequest)>>>>;
-type ListenHandler = Option<Pin<Box<Box<dyn Fn()>>>>;
+type ListenHandler = Pin<Box<Box<dyn FnOnce(ListenSocket)>>>;
 
 pub struct Application<const SSL: bool> {
     routes_data: RoutesData<SSL>,
     _socket_context_options: UsSocketContextOptionsCRepr,
-    listen_handler: ListenHandler,
+    listen_handler: Option<ListenHandler>,
     native: *mut uws_app_t,
 }
 
@@ -161,12 +162,16 @@ impl<const SSL: bool> Application<SSL> {
         unsafe { uws_app_run(SSL as i32, self.native) }
     }
 
-    pub fn listen(&mut self, port: i32, handler: Option<impl Fn() + 'static + Unpin>) -> &mut Self {
+    pub fn listen(
+        &mut self,
+        port: i32,
+        handler: Option<impl FnOnce(ListenSocket) + 'static + Unpin>,
+    ) -> &mut Self {
         let user_data = if let Some(handler) = handler {
-            let listen_handler: Pin<Box<Box<dyn Fn()>>> = Box::pin(Box::new(handler));
+            let listen_handler: ListenHandler = Box::pin(Box::new(handler));
             self.listen_handler = Some(listen_handler);
             let user_data = Pin::as_ref(self.listen_handler.as_ref().unwrap()).get_ref();
-            let user_data_ptr: *const Box<dyn Fn()> = user_data;
+            let user_data_ptr: *const Box<dyn FnOnce(ListenSocket)> = user_data;
             user_data_ptr as *mut c_void
         } else {
             null_mut()
@@ -205,14 +210,13 @@ unsafe extern "C" fn ssl_http_handler(
 }
 
 unsafe extern "C" fn on_listen(
-    _: *mut us_listen_socket_t,
+    listen_socket_ptr: *mut us_listen_socket_t,
     _: uws_app_listen_config_t,
     user_data: *mut std::os::raw::c_void,
 ) {
     if !user_data.is_null() {
-        let listen_handler = user_data as *mut Box<dyn Fn()>;
-        let listen_handler = listen_handler.as_ref().unwrap();
-        listen_handler();
+        let listen_handler = Box::from_raw(user_data as *mut Box<dyn FnOnce(ListenSocket)>);
+        listen_handler(ListenSocket { listen_socket_ptr });
     }
 }
 

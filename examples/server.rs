@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-use uwebsockets_rs::app::App;
+use uwebsockets_rs::app::{App, ListenSocket};
 use uwebsockets_rs::http_request::HttpRequest;
 use uwebsockets_rs::http_response::HttpResponse;
 use uwebsockets_rs::us_socket_context_options::UsSocketContextOptions;
@@ -87,7 +87,7 @@ fn main() {
         .get("/long", long)
         .get("/async", async_http_handler)
         .ws("/ws", websocket_behavior)
-        .listen(3000, None::<fn()>)
+        .listen(3000, None::<fn(ListenSocket)>)
         .run();
 }
 
@@ -117,14 +117,12 @@ fn upgrade_handler(res: HttpResponse, req: HttpRequest, context: UpgradeContext)
     let ws_protocol = req.get_header("sec-websocket-protocol");
     let ws_extensions = req.get_header("sec-websocket-extensions");
 
-    let user_data = "user_data".to_string();
-
     res.upgrade(
         ws_key_string,
         ws_protocol,
         ws_extensions,
         context,
-        Some(user_data),
+        None::<&mut ()>,
     );
 }
 

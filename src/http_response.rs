@@ -162,17 +162,21 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
     pub fn pause(&self) {
         unsafe { uws_res_pause(SSL as c_int, self.native) }
     }
+
     pub fn resume(&self) {
         unsafe { uws_res_resume(SSL as c_int, self.native) }
     }
+
     pub fn write(&self, data: &str) -> bool {
         let data_len = data.len();
         let data_ptr = data.as_ptr() as *const c_char;
         unsafe { uws_res_write(SSL as c_int, self.native, data_ptr, data_len) }
     }
+
     pub fn write_continue(&self) {
         unsafe { uws_res_write_continue(SSL as c_int, self.native) }
     }
+
     pub fn write_status(&self, status: &str) {
         let len = status.len();
         let status_ptr = status.as_ptr() as *const c_char;
@@ -180,6 +184,7 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
             uws_res_write_status(SSL as c_int, self.native, status_ptr, len);
         }
     }
+
     pub fn write_header(&self, key: &str, value: &str) {
         let key_len = key.len();
         let key_ptr = key.as_ptr() as *const c_char;
@@ -196,6 +201,7 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
             );
         }
     }
+
     pub fn write_header_int(&self, key: &str, value: u64) {
         let key_len = key.len();
         let key_ptr = key.as_ptr() as *const c_char;
@@ -203,25 +209,31 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
             uws_res_write_header_int(SSL as c_int, self.native, key_ptr, key_len, value);
         }
     }
+
     pub fn end_without_body(&self, close_connection: bool) {
         unsafe {
             uws_res_end_without_body(SSL as c_int, self.native, close_connection);
         }
     }
+
     pub fn get_write_offset(&self) -> u64 {
         unsafe { uws_res_get_write_offset(SSL as c_int, self.native) }
     }
+
     pub fn override_write_offset(&self, offset: u64) {
         unsafe {
             uws_res_override_write_offset(SSL as c_int, self.native, offset);
         }
     }
+
     pub fn has_responded(&self) -> bool {
         unsafe { uws_res_has_responded(SSL as c_int, self.native) }
     }
+
     pub fn get_remote_address(&self) -> &str {
         unsafe { read_str_from_with_ssl::<SSL, uws_res_t>(self.native, uws_res_get_remote_address) }
     }
+
     pub fn get_remote_address_as_text(&self) -> &str {
         unsafe {
             read_str_from_with_ssl::<SSL, uws_res_t>(
@@ -241,7 +253,6 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
     ) where
         T: Sized,
     {
-        // TODO: Consider memory leaks here
         let user_data = user_data
             .map(|data| data as *mut _ as *mut c_void)
             .unwrap_or(null_mut());
