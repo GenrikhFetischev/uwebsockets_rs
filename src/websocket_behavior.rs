@@ -22,9 +22,9 @@ use libuwebsockets_sys::{
     uws_websocket_t,
 };
 
+use crate::{http_request::HttpRequest, http_response::HttpResponseStruct};
 use crate::utils::{read_buf_from_ptr, read_str_from_ptr};
 use crate::websocket::{Opcode, WebSocketStruct};
-use crate::{http_request::HttpRequest, http_response::HttpResponseStruct};
 
 pub enum CompressOptions {
     /* Disabled, shared, shared are "special" values */
