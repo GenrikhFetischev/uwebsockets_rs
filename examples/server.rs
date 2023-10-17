@@ -1,11 +1,12 @@
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-use uwebsockets_rs::app::{App, ListenSocket};
+use uwebsockets_rs::app::App;
 use uwebsockets_rs::http_request::HttpRequest;
 use uwebsockets_rs::http_response::HttpResponse;
+use uwebsockets_rs::listen_socket::ListenSocket;
 use uwebsockets_rs::us_socket_context_options::UsSocketContextOptions;
 use uwebsockets_rs::websocket::Opcode;
 use uwebsockets_rs::websocket_behavior::{CompressOptions, UpgradeContext, WebSocketBehavior};
