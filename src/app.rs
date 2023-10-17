@@ -6,10 +6,10 @@ use std::{
 };
 
 use libuwebsockets_sys::{
-    us_listen_socket_t, uws_app_any, uws_app_connect, uws_app_delete, uws_app_get, uws_app_listen,
-    uws_app_listen_config_t, uws_app_options, uws_app_patch, uws_app_post, uws_app_put,
-    uws_app_run, uws_app_t, uws_app_trace, uws_create_app, uws_method_handler, uws_req_t,
-    uws_res_t, uws_ws,
+    us_listen_socket_t, uws_app_any, uws_app_close, uws_app_connect, uws_app_delete, uws_app_get,
+    uws_app_listen, uws_app_listen_config_t, uws_app_options, uws_app_patch, uws_app_post,
+    uws_app_put, uws_app_run, uws_app_t, uws_app_trace, uws_create_app, uws_method_handler,
+    uws_req_t, uws_res_t, uws_ws,
 };
 
 use crate::http_request::HttpRequest;
@@ -19,13 +19,11 @@ use crate::us_socket_context_options::{UsSocketContextOptions, UsSocketContextOp
 use crate::websocket_behavior::WebSocketBehavior;
 
 type RoutesData<const SSL: bool> = Vec<Pin<Box<Box<dyn Fn(HttpResponseStruct<SSL>, HttpRequest)>>>>;
-type ListenHandler = Pin<Box<Box<dyn FnOnce(ListenSocket)>>>;
 
 pub struct Application<const SSL: bool> {
     routes_data: RoutesData<SSL>,
     _socket_context_options: UsSocketContextOptionsCRepr,
-    listen_handler: Option<ListenHandler>,
-    native: *mut uws_app_t,
+    native: NativeApp,
 }
 
 impl<const SSL: bool> Application<SSL> {
@@ -37,8 +35,9 @@ impl<const SSL: bool> Application<SSL> {
             Self {
                 routes_data: Vec::new(),
                 _socket_context_options: socket_context_options,
-                native: uws_create_app(SSL as i32, native_config),
-                listen_handler: None,
+                native: NativeApp {
+                    app_ptr: uws_create_app(SSL as i32, native_config),
+                },
             }
         }
     }
@@ -50,7 +49,7 @@ impl<const SSL: bool> Application<SSL> {
         unsafe {
             uws_ws(
                 SSL as i32,
-                self.native,
+                self.native.app_ptr,
                 pattern_c.as_ptr(),
                 behavior,
                 user_callbacks as *mut c_void,
@@ -86,7 +85,7 @@ impl<const SSL: bool> Application<SSL> {
             let handler = if SSL { ssl_http_handler } else { http_handler };
             registrar(
                 SSL as i32,
-                self.native,
+                self.native.app_ptr,
                 pattern_c.as_ptr(),
                 Some(handler),
                 user_data_ptr as *mut c_void,
@@ -159,7 +158,11 @@ impl<const SSL: bool> Application<SSL> {
     }
 
     pub fn run(&mut self) {
-        unsafe { uws_app_run(SSL as i32, self.native) }
+        unsafe { uws_app_run(SSL as i32, self.native.app_ptr) }
+    }
+
+    pub fn close(&self) {
+        unsafe { uws_app_close(SSL as i32, self.native.app_ptr) }
     }
 
     pub fn listen(
@@ -168,17 +171,24 @@ impl<const SSL: bool> Application<SSL> {
         handler: Option<impl FnOnce(ListenSocket) + 'static + Unpin>,
     ) -> &mut Self {
         let user_data = if let Some(handler) = handler {
-            let listen_handler: ListenHandler = Box::pin(Box::new(handler));
-            self.listen_handler = Some(listen_handler);
-            let user_data = Pin::as_ref(self.listen_handler.as_ref().unwrap()).get_ref();
-            let user_data_ptr: *const Box<dyn FnOnce(ListenSocket)> = user_data;
+            let listen_hanler: Box<Box<dyn FnOnce(ListenSocket)>> =
+                Box::new(Box::new(move |listen_socket: ListenSocket| {
+                    handler(listen_socket)
+                }));
+            let user_data_ptr = Box::into_raw(listen_hanler);
             user_data_ptr as *mut c_void
         } else {
             null_mut()
         };
 
         unsafe {
-            uws_app_listen(SSL as i32, self.native, port, Some(on_listen), user_data);
+            uws_app_listen(
+                SSL as i32,
+                self.native.app_ptr,
+                port,
+                Some(on_listen),
+                user_data,
+            );
         }
         self
     }
@@ -222,3 +232,24 @@ unsafe extern "C" fn on_listen(
 
 pub type SSLApp = Application<true>;
 pub type App = Application<false>;
+
+#[derive(Clone, Copy, Debug)]
+pub struct NativeApp {
+    pub(crate) app_ptr: *mut uws_app_t,
+}
+unsafe impl Send for NativeApp {}
+unsafe impl Sync for NativeApp {}
+
+#[cfg(feature = "native-access")]
+impl NativeApp {
+    pub fn get_native(&self) -> *mut uws_app_t {
+        self.app_ptr
+    }
+}
+
+#[cfg(feature = "native-access")]
+impl<const SSL: bool> Application<SSL> {
+    pub fn get_native_app(&self) -> NativeApp {
+        self.native
+    }
+}

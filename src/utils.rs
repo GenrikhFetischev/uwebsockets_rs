@@ -35,7 +35,6 @@ pub unsafe fn read_valid_string_from_ptr<'a>(ptr: *const c_char, len: usize) -> 
         Err(e) => {
             let valid_len = e.valid_up_to();
             let invalid_len = len - valid_len;
-            println!("{e:#?}");
 
             std::str::from_utf8(&bytes[..valid_len - invalid_len])
                 .expect("[uwebsockets_rs] Can't read string from ptr")

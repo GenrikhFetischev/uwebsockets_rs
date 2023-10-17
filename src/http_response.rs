@@ -2,11 +2,11 @@ use std::ffi::{c_char, c_int, c_void};
 use std::ptr::{null, null_mut};
 
 use libuwebsockets_sys::{
-  uws_res_cork, uws_res_end, uws_res_end_without_body, uws_res_get_remote_address,
-  uws_res_get_remote_address_as_text, uws_res_get_write_offset, uws_res_has_responded,
-  uws_res_on_aborted, uws_res_on_data, uws_res_on_writable, uws_res_override_write_offset,
-  uws_res_pause, uws_res_resume, uws_res_t, uws_res_try_end, uws_res_upgrade, uws_res_write,
-  uws_res_write_continue, uws_res_write_header, uws_res_write_header_int, uws_res_write_status,
+    uws_res_cork, uws_res_end, uws_res_end_without_body, uws_res_get_remote_address,
+    uws_res_get_remote_address_as_text, uws_res_get_write_offset, uws_res_has_responded,
+    uws_res_on_aborted, uws_res_on_data, uws_res_on_writable, uws_res_override_write_offset,
+    uws_res_pause, uws_res_resume, uws_res_t, uws_res_try_end, uws_res_upgrade, uws_res_write,
+    uws_res_write_continue, uws_res_write_header, uws_res_write_header_int, uws_res_write_status,
 };
 
 use crate::utils::{read_str_from_ptr, read_str_from_with_ssl};
