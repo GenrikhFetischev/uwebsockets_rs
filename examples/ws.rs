@@ -1,8 +1,3 @@
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::thread;
-use std::time::Duration;
-
 use uwebsockets_rs::app::App;
 use uwebsockets_rs::http_request::HttpRequest;
 use uwebsockets_rs::http_response::HttpResponse;
@@ -24,6 +19,7 @@ fn main() {
 
     let compressor: u32 = CompressOptions::SharedCompressor.into();
     let decompressor: u32 = CompressOptions::SharedDecompressor.into();
+
     let websocket_behavior = WebSocketBehavior {
         compression: compressor | decompressor,
         max_payload_length: 1024,
@@ -69,46 +65,9 @@ fn main() {
     };
 
     App::new(config)
-        .get("/get", |res: HttpResponse, mut req| {
-            println!("Get request to /get path");
-            println!("{}", req.get_full_url());
-            let headers = req.get_headers();
-            println!("Headers");
-            for header in headers {
-                println!("{header:#?}");
-            }
-
-            let header = req.get_header("host");
-            println!("HOST: {header:#?}");
-            let query = req.get_query("a");
-            println!("query: {query:#?}");
-
-            res.end(Some("Some response"), true);
-        })
-        .get("/long", long)
-        .get("/async", async_http_handler)
         .ws("/ws", websocket_behavior)
-        .listen(3000, None::<fn(ListenSocket)>)
+        .listen(3001, None::<fn(ListenSocket)>)
         .run();
-}
-
-fn long(mut res: HttpResponse, _: HttpRequest) {
-    println!("LONG handler");
-
-    res.on_aborted(move || {
-        println!("ABORTED");
-    });
-
-    // res.on_data(|_data, _status| {
-    //     println!("DATA");
-    // });
-    //
-    // res.on_writable(|_data| {
-    //     println!("WRITABLE");
-    //     true
-    // });
-    thread::sleep(Duration::from_secs(2));
-    res.end(Some("result"), true);
 }
 
 fn upgrade_handler(res: HttpResponse, req: HttpRequest, context: UpgradeContext) {
@@ -125,22 +84,4 @@ fn upgrade_handler(res: HttpResponse, req: HttpRequest, context: UpgradeContext)
         context,
         None::<&mut ()>,
     );
-}
-
-fn async_http_handler(mut res: HttpResponse, _: HttpRequest) {
-    let aborted = Arc::new(AtomicBool::new(false));
-    let aborted_to_move = aborted.clone();
-
-    res.on_aborted(move || aborted_to_move.store(true, Ordering::Relaxed));
-
-    thread::spawn(move || {
-        thread::sleep(Duration::from_secs(1));
-        let is_aborted = aborted.load(Ordering::Relaxed);
-        if !is_aborted {
-            println!("Answering");
-            res.end(Some("result"), true);
-        } else {
-            println!("Request is aborted, will not answer");
-        }
-    });
 }

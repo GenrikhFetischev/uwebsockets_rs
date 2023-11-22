@@ -1,6 +1,6 @@
 [package]
 name = "uwebsockets_rs"
-version = "0.0.9"
+version = "0.0.10"
 edition = "2021"
 authors = ["Genrikh Fetishchev <genrikhfetischev@gmail.com>"]
 description = "Rust wrapper for the uWebSockets"
@@ -9,10 +9,10 @@ homepage = "https://github.com/GenrikhFetischev/uwebsockets_rs"
 keywords = ["http", "websocket", "server", "uwebsockets"]
 exclude = ["build.rs"]
 
-[profile.dev.build-override]
-debug = true
-[profile.release.build-override]
 
+[profile.dev]
+debug = true
+[profile.dev.build-override]
 debug = true
 
 [features]

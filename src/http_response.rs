@@ -2,17 +2,19 @@ use std::ffi::{c_char, c_int, c_void};
 use std::ptr::{null, null_mut};
 
 use libuwebsockets_sys::{
-    uws_res_cork, uws_res_end, uws_res_end_without_body, uws_res_get_remote_address,
-    uws_res_get_remote_address_as_text, uws_res_get_write_offset, uws_res_has_responded,
-    uws_res_on_aborted, uws_res_on_data, uws_res_on_writable, uws_res_override_write_offset,
-    uws_res_pause, uws_res_resume, uws_res_t, uws_res_try_end, uws_res_upgrade, uws_res_write,
-    uws_res_write_continue, uws_res_write_header, uws_res_write_header_int, uws_res_write_status,
+  uws_res_cork, uws_res_end, uws_res_end_without_body, uws_res_get_remote_address,
+  uws_res_get_remote_address_as_text, uws_res_get_write_offset, uws_res_has_responded,
+  uws_res_on_aborted, uws_res_on_data, uws_res_on_writable, uws_res_override_write_offset,
+  uws_res_pause, uws_res_resume, uws_res_t, uws_res_try_end, uws_res_upgrade, uws_res_write,
+  uws_res_write_continue, uws_res_write_header, uws_res_write_header_int, uws_res_write_status,
+  uws_try_end_result_t,
 };
 
-use crate::utils::{read_str_from_ptr, read_str_from_with_ssl};
+use crate::http_request::HttpRequest;
+use crate::utils::{read_buf_from_ptr, read_str_from_with_ssl};
 use crate::websocket_behavior::UpgradeContext;
 
-pub(crate) type OnDataHandler = Box<dyn Fn(&str, bool)>;
+pub(crate) type OnDataHandler = Box<dyn Fn(&[u8], bool)>;
 pub(crate) type OnWritableHandler = Box<dyn Fn(u64) -> bool>;
 
 pub type HttpResponse = HttpResponseStruct<false>;
@@ -50,6 +52,24 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
 }
 
 impl<const SSL: bool> HttpResponseStruct<SSL> {
+    pub fn default_upgrade(res: HttpResponse, req: HttpRequest, context: UpgradeContext) {
+        let ws_key_string = req
+            .get_header("sec-websocket-key")
+            .expect("There is no sec-websocket-key in req headers");
+        let ws_protocol = req.get_header("sec-websocket-protocol");
+        let ws_extensions = req.get_header("sec-websocket-extensions");
+
+        res.upgrade(
+            ws_key_string,
+            ws_protocol,
+            ws_extensions,
+            context,
+            None::<&mut ()>,
+        );
+    }
+}
+
+impl<const SSL: bool> HttpResponseStruct<SSL> {
     pub fn cork(&mut self, handler: impl Fn() + Sized + 'static) {
         let user_data: Box<dyn FnOnce()> = Box::new(Box::new(handler));
         let user_data = Box::into_raw(user_data);
@@ -65,7 +85,7 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
         }
     }
 
-    pub fn on_data(&mut self, handler: impl Fn(&str, bool) + Sized + 'static) {
+    pub fn on_data(&mut self, handler: impl Fn(&[u8], bool) + Sized + 'static) {
         let user_data: Box<OnDataHandler> = Box::new(Box::new(handler));
         let user_data = Box::into_raw(user_data);
 
@@ -117,14 +137,13 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
 
     pub fn deinit(&self) {
         unsafe {
-            let _ = self.on_data_ptr.map(|p| Box::from_raw(p));
             let _ = self.on_abort_ptr.map(|p| Box::from_raw(p));
             let _ = self.on_writable_ptr.map(|p| Box::from_raw(p));
             let _ = self.on_cork_ptr.map(|p| Box::from_raw(p));
         }
     }
 
-    pub fn end(&self, data: Option<&str>, close_connection: bool) {
+    pub fn end(&self, data: Option<&[u8]>, close_connection: bool) {
         unsafe {
             let (data, length) = match data {
                 Some(data) => (data.as_ptr(), data.len()),
@@ -138,12 +157,16 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
                 close_connection,
             )
         }
-
         self.deinit()
     }
 
-    pub fn try_end(&self, data: Option<&str>, total_size: u64, close_connection: bool) {
-        unsafe {
+    pub fn try_end(
+        &self,
+        data: Option<&[u8]>,
+        total_size: u64,
+        close_connection: bool,
+    ) -> TryEndResult<SSL> {
+        let res: TryEndResult<SSL> = unsafe {
             let (data, length) = match data {
                 Some(data) => (data.as_ptr(), data.len()),
                 None => (null(), 0),
@@ -155,8 +178,15 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
                 length,
                 total_size,
                 close_connection,
-            );
+            )
         }
+        .into();
+
+        if res.has_responded {
+            self.deinit();
+        }
+
+        res
     }
 
     pub fn pause(&self) {
@@ -167,7 +197,7 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
         unsafe { uws_res_resume(SSL as c_int, self.native) }
     }
 
-    pub fn write(&self, data: &str) -> bool {
+    pub fn write(&self, data: &[u8]) -> bool {
         let data_len = data.len();
         let data_ptr = data.as_ptr() as *const c_char;
         unsafe { uws_res_write(SSL as c_int, self.native, data_ptr, data_len) }
@@ -307,20 +337,43 @@ unsafe extern "C" fn on_data(
     is_end: bool,
     optional_data: *mut c_void,
 ) {
-    let user_handler = Box::from_raw(optional_data as *mut OnDataHandler);
-    let user_handler = user_handler.as_ref();
-    let str = read_str_from_ptr(chunk, chunk_length);
-    user_handler(str, is_end);
+    if is_end {
+        let user_handler = Box::from_raw(optional_data as *mut OnDataHandler);
+        let user_handler = user_handler.as_ref();
+        let buf = read_buf_from_ptr(chunk, chunk_length);
+        user_handler(buf, is_end);
+    } else {
+        let user_handler = optional_data as *mut OnDataHandler;
+        let user_handler = user_handler.as_ref().unwrap();
+        let buf = read_buf_from_ptr(chunk, chunk_length);
+        user_handler(buf, is_end);
+    };
 }
 
 unsafe extern "C" fn on_writable(_: *mut uws_res_t, arg1: u64, optional_data: *mut c_void) -> bool {
-    let user_handler = Box::from_raw(optional_data as *mut Box<dyn Fn(u64) -> bool>);
-    let user_handler = user_handler.as_ref();
+    let user_handler = optional_data as *mut Box<dyn Fn(u64) -> bool>;
+    let user_handler = user_handler.as_ref().unwrap();
     user_handler(arg1)
 }
 
 unsafe extern "C" fn on_cork(_: *mut uws_res_t, user_data: *mut c_void) {
-    let user_handler = Box::from_raw(user_data as *mut Box<dyn Fn()>);
-    let user_handler = user_handler.as_ref();
+    let user_handler = user_data as *mut Box<dyn Fn()>;
+    let user_handler = user_handler.as_ref().unwrap();
     user_handler()
+}
+
+pub struct TryEndResult<const SSL: bool> {
+    pub ok: bool,
+    pub has_responded: bool,
+    // TODO: consider take ownership of self in try end & end, then use that field
+    // pub(crate) res: Option<HttpResponseStruct<SSL>>,
+}
+
+impl<const SSL: bool> From<uws_try_end_result_t> for TryEndResult<SSL> {
+    fn from(result: uws_try_end_result_t) -> Self {
+        TryEndResult {
+            ok: result.ok,
+            has_responded: result.has_responded,
+        }
+    }
 }
