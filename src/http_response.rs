@@ -137,7 +137,6 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
 
     pub fn deinit(&self) {
         unsafe {
-            let _ = self.on_abort_ptr.map(|p| Box::from_raw(p));
             let _ = self.on_writable_ptr.map(|p| Box::from_raw(p));
             let _ = self.on_cork_ptr.map(|p| Box::from_raw(p));
         }
@@ -157,7 +156,10 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
                 close_connection,
             )
         }
-        self.deinit()
+        self.deinit();
+        unsafe {
+            let _ = self.on_abort_ptr.map(|p| Box::from_raw(p));
+        }
     }
 
     pub fn try_end(
@@ -184,6 +186,9 @@ impl<const SSL: bool> HttpResponseStruct<SSL> {
 
         if res.has_responded {
             self.deinit();
+            unsafe {
+                let _ = self.on_abort_ptr.map(|p| Box::from_raw(p));
+            }
         }
 
         res
