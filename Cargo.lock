@@ -4,9 +4,9 @@ version = 3
 
 [[package]]
 name = "bindgen"
-version = "0.68.1"
+version = "0.69.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "726e4313eb6ec35d2730258ad4e15b547ee75d6afaa1361a922e78e59b7d8078"
+checksum = "a4c69fae65a523209d34240b60abe0c42d33d1045d445c0839d8a4894a736e2d"
 dependencies = [
  "bitflags",
  "cexpr",
@@ -221,7 +221,7 @@ checksum = "e5464a87b239f13a63a501f2701565754bae92d243d4bb7eb12f6d57d2269bf4"
 
 [[package]]
 name = "uwebsockets_rs"
-version = "0.0.10"
+version = "0.0.11"
 dependencies = [
  "libuwebsockets-sys",
 ]

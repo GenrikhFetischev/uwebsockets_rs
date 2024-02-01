@@ -17,10 +17,15 @@ debug = true
 
 [features]
 native-access = []
+uws_vendored = ["libuwebsockets-sys/uws_vendored"]
+z_vendored = ["libuwebsockets-sys/z_vendored"]
+uv_vendored = ["libuwebsockets-sys/uv_vendored"]
+openssl_vendored = ["libuwebsockets-sys/openssl_vendored"]
+
 
 
 [dependencies]
-libuwebsockets-sys = { path = "../libuwebsockets-sys", version = "0.0.9", features = ["uws_vendored"] }
+libuwebsockets-sys = { path = "../libuwebsockets-sys", version = "0.0.9", features = ["uws_vendored", "z_vendored", "uv_vendored", "openssl_vendored"] }
 
 
 
