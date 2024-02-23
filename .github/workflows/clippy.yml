@@ -12,18 +12,20 @@ jobs:
       - run: |
           
           ls -la /usr/lib/
-          export LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
-          export C_INCLUDE_PATH=/usr/include/
+          echo "______________________"
+          ls -la /usr/include/
+    
           
           
-          apt-get --assume-yes install libclang-dev
-          apt-get --assume-yes install openssl
-          apt-get --assume-yes install libssl-dev
-          apt-get --assume-yes install build-essential
-          apt-get --assume-yes install libuv1-dev
-          apt-get --assume-yes install zlib1g-dev
-          apt-get --assume-yes install pkg-config
-          apt-get --assume-yes install git
+          
+          sudo apt-get --assume-yes install libclang-dev
+          sudo apt-get --assume-yes install openssl
+          sudo apt-get --assume-yes install libssl-dev
+          sudo apt-get --assume-yes install build-essential
+          sudo apt-get --assume-yes install libuv1-dev
+          sudo apt-get --assume-yes install zlib1g-dev
+          sudo apt-get --assume-yes install pkg-config
+          sudo apt-get --assume-yes install git
 
       - uses: actions-rs/clippy-check@v1
         with:
