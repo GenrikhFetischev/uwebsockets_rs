@@ -10,14 +10,6 @@ jobs:
           fetch-depth: 1
       - run: rustup component add clippy
       - run: |
-          
-          ls -la /usr/lib/
-          echo "______________________"
-          ls -la /usr/include/
-    
-          
-          
-          
           sudo apt-get --assume-yes install libclang-dev
           sudo apt-get --assume-yes install openssl
           sudo apt-get --assume-yes install libssl-dev
