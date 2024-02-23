@@ -109,6 +109,8 @@ dependencies = [
 [[package]]
 name = "libuwebsockets-sys"
 version = "0.0.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d51e3baec29ccd68a26e61be5376c35a778f7ebd8584041e7c535e1a80786873"
 dependencies = [
  "bindgen",
 ]
