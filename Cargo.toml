@@ -20,7 +20,7 @@ native-access = []
 
 
 [dependencies]
-libuwebsockets-sys = { path = "../libuwebsockets-sys", version = "0.0.9", features = ["uws_vendored"] }
+libuwebsockets-sys = { version = "0.0.10", features = ["uws_vendored"] }
 
 
 

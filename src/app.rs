@@ -1,9 +1,9 @@
-use std::ffi::{c_char, c_int};
-use std::ptr::null_mut;
 use std::{
     ffi::{c_void, CString},
     pin::Pin,
 };
+use std::ffi::{c_char, c_int};
+use std::ptr::null_mut;
 
 use libuwebsockets_sys::{
     us_listen_socket_t, uws_app_any, uws_app_close, uws_app_connect, uws_app_delete, uws_app_get,

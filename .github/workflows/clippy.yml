@@ -1,0 +1,25 @@
+on: push
+name: Clippy check
+jobs:
+  clippy_check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          submodules: 'recursive'
+          fetch-depth: 1
+      - run: rustup component add clippy
+      - run: |
+          sudo apt-get --assume-yes install libclang-dev
+          sudo apt-get --assume-yes install openssl
+          sudo apt-get --assume-yes install libssl-dev
+          sudo apt-get --assume-yes install build-essential
+          sudo apt-get --assume-yes install libuv1-dev
+          sudo apt-get --assume-yes install zlib1g-dev
+          sudo apt-get --assume-yes install pkg-config
+          sudo apt-get --assume-yes install git
+
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --release -- -D warnings
